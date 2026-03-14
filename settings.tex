@@ -26,7 +26,6 @@
 \usepackage[final]{microtype}
 \usepackage{caption}
 \usepackage[printonlyused]{acronym}
-\usepackage{ifthen}
 
 
 \hypersetup{hidelinks} % removes colored boxes around references and links
@@ -50,19 +49,6 @@
 
 \addto\extrasngerman{
 	\def\lstnumberautorefname{Zeile}
-}
-
-% Themes
-\ifthenelse{\equal{\detokenize{dark}}{\jobname}}{%
-  % Dark theme
-  \newcommand{\bg}{black} % background
-  \newcommand{\fg}{white} % foreground
-  \usepackage[pagecolor=\bg]{pagecolor}
-  \color{\fg}
-}{%
-  % Light theme
-  \newcommand{\bg}{white} % background
-  \newcommand{\fg}{black} % foreground
 }
 
 \bibliography{bibliography}

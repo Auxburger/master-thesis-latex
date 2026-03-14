@@ -9,14 +9,14 @@
 
   \centering
 
-  \IfFileExists{logos/tum-\fg.pdf}{%
-    \includegraphics[height=20mm]{logos/tum-\fg.pdf}
+  \IfFileExists{logos/logo.png}{%
+    \includegraphics[height=20mm]{logos/logo.png}
   }{%
     \vspace*{20mm}
   }
 
   \vspace{5mm}
-  {\huge\MakeUppercase{School of \getSchool{} --- \getFaculty{}} \par}
+  {\huge\MakeUppercase{School of \getSchool{}} \par}
 
   \vspace{5mm}
   {\large\MakeUppercase{\getUniversity{}} \par}
@@ -30,8 +30,8 @@
   \vspace{10mm}
   {\LARGE \getAuthor{}}
 
-  \IfFileExists{logos/faculty-\fg.pdf}{%
+  \IfFileExists{logos/faculty.png}{%
     \vfill{}
-    \includegraphics[height=20mm]{logos/faculty-\fg.pdf}
+    \includegraphics[height=20mm]{logos/faculty.png}
   }{}
 \end{titlepage}
