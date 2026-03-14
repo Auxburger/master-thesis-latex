@@ -1,0 +1,76 @@
+% !TeX root = ../main.tex
+
+\chapter{Evaluation of Permit-Based Resource Arbitration using TCM}\label{chapter:poc_tcm}
+
+Modern high-performance applications frequently combine multiple parallel programming models within a single process. Typical examples include OpenMP combined with task-based runtimes such as oneTBB or numerical libraries internally parallelized using OpenMP. While each runtime independently aims to maximize hardware utilization, the coexistence of multiple thread pools often leads to oversubscription of CPU resources. This phenomenon is commonly referred to as a performance composability problem.
+
+Fedotov et al.\ introduce the Thread Composability Manager (TCM) as a shared CPU resource coordinator that arbitrates hardware resources among parallel runtimes within a single process address space~\parencite{fedotov_case_nodate}. Instead of directly managing threads, TCM grants resource permits to participating runtimes and may renegotiate these permits dynamically.
+
+Although TCM is not designed as a cluster-wide or multi-process resource manager, its architectural concepts provide valuable insight into dynamic resource management strategies that are relevant for OpenMP runtime adaptation. In this section, TCM is analyzed as a proof of concept for permit-based resource arbitration and positioned relative to the objectives of this thesis.
+
+\section{TCM Architecture}
+
+TCM is implemented as a process-wide singleton that coordinates participating runtimes via an explicit negotiation protocol~\parencite{fedotov_case_nodate}. Each runtime connects to TCM and requests a resource permit, which describes a subset of available hardware resources. A permit may include:
+\begin{itemize}
+  \item Minimum and maximum concurrency levels
+  \item CPU masks or NUMA node constraints
+  \item Core-type constraints (e.g., performance or efficiency cores)
+  \item Threads-per-core limits
+  \item Priority information
+\end{itemize}
+
+Permits transition between different states such as \texttt{void}, \texttt{inactive}, \texttt{idle}, \texttt{pending}, and \texttt{active}. The runtime is responsible for mapping its internal thread pool onto the resources granted by an active permit. Importantly, TCM does not manage threads directly. It relies on the cooperation of integrated runtimes, which must respect granted permits and adjust their internal scheduling behavior accordingly.
+
+\section{Integration into OpenMP}
+
+In the TCM case study, an OpenMP team corresponds to a resource permit. At the fork barrier of a parallel region, the OpenMP runtime requests or activates a permit; at the join barrier, the permit transitions to an idle or inactive state~\parencite{fedotov_case_nodate}. However, a key limitation arises from the OpenMP execution model. Since, once a parallel region becomes active, its team size cannot be renegotiated until the region completes, OpenMP permits are treated as non-negotiable while active. This rigidity significantly restricts fine-grained dynamic adaptation. In contrast, task-based runtimes such as oneTBB allow threads to join or leave execution arenas dynamically, enabling mid-execution renegotiation. This observation highlights an important structural limitation of OpenMP's traditional fork-join model and directly motivates the research direction pursued in this thesis.
+
+\section{Limitations with Multi-Process Synchronization}
+
+TCM operates strictly within a single process address space. It does not coordinate:
+\begin{itemize}
+  \item Multiple MPI ranks on the same node
+  \item Independent processes sharing a NUMA domain
+  \item Cluster-level job scheduling decisions
+  \item System-wide resource redistribution
+\end{itemize}
+
+For hybrid HPC workloads (e.g., MPI + OpenMP), contention frequently occurs across process boundaries rather than solely between runtimes within one process. In such scenarios, a purely intra-process solution is insufficient.
+
+Furthermore, TCM assumes that all participating runtimes are permit-aware and cooperative. It does not enforce resource constraints at the operating system level, nor does it integrate with external resource managers such as Slurm. Therefore, while TCM effectively addresses intra-process composability, it cannot serve as a complete solution for dynamic resource management in multi-process or cluster-scale environments.
+
+\section{Conceptual Influence on This Work}
+
+Despite its limitations, TCM introduces several architectural concepts that are relevant for this thesis:
+\begin{enumerate}
+  \item \textbf{Permit-based abstraction.} Modeling hardware allocation as a negotiable entity simplifies reasoning about concurrency and ownership of CPU resources.
+  \item \textbf{Separation of arbitration and execution.} TCM separates policy decisions from thread pool mechanics. This separation inspires the design principle adopted in this thesis, where monitoring, decision logic, and enforcement are clearly modularized.
+  \item \textbf{Strategy-dependent performance behavior.} TCM evaluates multiple adaptive strategies and demonstrates that no single resource management strategy performs optimally across all workload compositions~\parencite{fedotov_case_nodate}. This finding reinforces the need for workload-aware dynamic scaling mechanisms.
+  \item \textbf{Importance of runtime compliance.} Experimental results in the TCM study show that incomplete runtime integration limits achievable performance gains. This motivates implementing dynamic resource management directly within the OpenMP runtime rather than relying solely on external coordination.
+\end{enumerate}
+
+\section{Positioning Relative to This Thesis}
+
+TCM primarily demonstrates feasibility of permit-based arbitration for intra-process runtime composition. In contrast, this thesis focuses on:
+\begin{itemize}
+  \item Dynamic adaptation of OpenMP team sizes
+  \item Runtime-level modification of the OpenMP execution model
+  \item Fine-grained scaling decisions based on runtime feedback
+  \item Potential extension toward inter-process and node-wide coordination
+\end{itemize}
+
+Thus, TCM serves as an architectural reference and a validation of the permit abstraction, while the primary contribution of this thesis lies in designing and implementing dynamic resource management mechanisms directly inside the OpenMP runtime. In summary, TCM illustrates that coordinated arbitration can resolve oversubscription issues within a single application. Building upon this insight, this thesis investigates how similar principles can be embedded natively into OpenMP to achieve dynamic, adaptive, and potentially cross-process resource management.
+
+\chapter{Free Agent Threads in OpenMP}\label{chapter:free_agent_threads}
+
+One of the fundamental limitations of the OpenMP programming model is its rigid fork--join execution structure. Although tasking was introduced to increase flexibility, task execution is still largely bound to the lifetime and structure of parallel regions. As a result, OpenMP applications often fail to fully exploit available hardware resources in scenarios with nested parallelism, phase-based parallelism, or hybrid MPI+OpenMP execution, where load imbalance across regions or processes leads to idle CPU cores.
+
+To address this limitation, López et al.\ propose the concept of free agent threads, an extension to the OpenMP execution model aimed at increasing malleability, i.e., the ability of an application to dynamically adapt its resource usage at runtime~\parencite{mcintosh-smith_openmp_2021}. Free agent threads are OpenMP threads that are explicitly not part of any parallel team. Instead of participating in work-sharing constructs or team-level synchronization, their sole purpose is to execute explicit OpenMP tasks. This design allows free agent threads to opportunistically utilize idle computational resources by stealing tasks from active task teams, even across different parallel regions.
+
+A key design decision is that free agent threads are not associated with OpenMP teams. This avoids semantic ambiguities related to barriers and team-level synchronization, while enabling dynamic creation, suspension, and destruction of free agent threads during program execution. Tasks eligible for execution by free agent threads must be explicit and untied, ensuring that they can be safely migrated between worker threads. To mitigate correctness issues in existing OpenMP codes that implicitly assume tasks are executed only by team threads (e.g., reliance on \texttt{omp\_get\_thread\_num()} or \texttt{threadprivate} data), the authors introduce a proposed \texttt{free\_agent} clause for task constructs, allowing developers to explicitly control whether tasks may be executed by free agent threads~\parencite{mcintosh-smith_openmp_2021}.
+
+The authors implement a prototype of free agent threads in the LLVM OpenMP runtime, requiring approximately 800 lines of code changes. In this implementation, free agent threads are realized as operating system threads that steal tasks from the task queues of regular OpenMP threads. The runtime exposes control mechanisms via environment variables, runtime library routines, and the OMPT interface, enabling external resource managers to dynamically enable or disable free agent threads.
+
+The effectiveness of the approach is demonstrated through two realistic HPC use cases. In a pure OpenMP application with nested parallel regions derived from the DMRG++ code, free agent threads reduce intra-process load imbalance and achieve speedups of up to 36\%. In a hybrid MPI+OpenMP application based on the Alya CFD code, free agent threads are coordinated by the Dynamic Load Balancing (DLB) library via OMPT callbacks to mitigate inter-process load imbalance, resulting in performance improvements of 10--20\%~\parencite{mcintosh-smith_openmp_2021}.
+
+Overall, free agent threads represent a practical and low-overhead mechanism to introduce dynamic resource malleability into OpenMP. By decoupling task execution from parallel region boundaries, they enable efficient utilization of shared-memory resources and provide a foundation for tighter integration between OpenMP runtimes and external resource management systems.

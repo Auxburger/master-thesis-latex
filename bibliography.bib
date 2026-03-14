@@ -1,7 +1,251 @@
-@book{latex,
-  title = {LaTeX : A Documentation Preparation System User's Guide and Reference Manual},
-  publisher = {Addison-Wesley Professional},
-  year = {1994},
-  author = {Leslie Lamport}
+@article{dagum_openmp_1998,
+	title = {{OpenMP}: an industry standard {API} for shared-memory programming},
+	volume = {5},
+	issn = {10709924},
+	url = {http://ieeexplore.ieee.org/document/660313/},
+	doi = {10.1109/99.660313},
+	number = {1},
+	journal = {IEEE Computational Science and Engineering},
+	author = {Dagum, L. and Menon, R.},
+	month = mar,
+	year = {1998},
+	pages = {46--55},
 }
 
+@techreport{openmp60,
+  author      = {{OpenMP Architecture Review Board}},
+  title       = {{OpenMP} Application Programming Interface Version 6.0},
+  institution = {OpenMP Architecture Review Board},
+  year        = {2024},
+  month       = nov,
+  url         = {https://www.openmp.org/wp-content/uploads/OpenMP-API-Specification-6-0.pdf},
+  note        = {Available at \url{https://www.openmp.org/specifications/}}
+}
+
+@misc{noauthor_welcome_nodate,
+	title = {Welcome to the documentation of {OpenMP} in {LLVM}! — {LLVM}/{OpenMP} documentation},
+	url = {https://openmp.llvm.org/},
+	urldate = {2026-02-09},
+}
+
+@misc{noauthor_llvm_nodate,
+	title = {The {LLVM} {Compiler} {Infrastructure} {Project}},
+	url = {https://llvm.org/},
+	urldate = {2026-02-09},
+}
+
+@misc{noauthor_nas_nodate,
+	title = {{NAS} {Parallel} {Benchmarks}},
+	url = {https://www.nas.nasa.gov/software/npb.html},
+	urldate = {2026-02-09},
+}
+
+@inproceedings{lattner_llvm_2004,
+	address = {San Jose, CA, USA},
+	title = {{LLVM}: {A} compilation framework for lifelong program analysis \& transformation},
+	isbn = {978-0-7695-2102-2},
+	url = {http://ieeexplore.ieee.org/document/1281665/},
+	doi = {10.1109/CGO.2004.1281665},
+	booktitle = {International {Symposium} on {Code} {Generation} and {Optimization}, 2004. {CGO} 2004.},
+	publisher = {IEEE},
+	author = {Lattner, C. and Adve, V.},
+	year = {2004},
+	pages = {75--86},
+}
+
+@inproceedings{Feitelson1996,
+  author    = {Feitelson, Dror G. and Rudolph, Larry},
+  title     = {Toward Convergence in Job Schedulers for Parallel Supercomputers},
+  booktitle = {Job Scheduling Strategies for Parallel Processing},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {1162},
+  pages     = {1--26},
+  year      = {1996},
+  publisher = {Springer},
+  address   = {Berlin, Heidelberg},
+  doi       = {10.1007/BFb0022284},
+}
+
+@article{Aliaga2022survey,
+  author    = {Aliaga, Jose I. and Castillo, Maribel and Iserte, Sergio
+               and Mart{\'i}n-{\'A}lvarez, Iker and Mayo, Rafael},
+  title     = {A Survey on Malleability Solutions for High-Performance Distributed Computing},
+  journal   = {Applied Sciences},
+  year      = {2022},
+  volume    = {12},
+  number    = {10},
+  pages     = {5231},
+  publisher = {MDPI},
+  doi       = {10.3390/app12105231},
+}
+
+@inproceedings{iancu2010oversubscription,
+  author    = {Iancu, Costin and Hofmeyr, Steven and Blagojevic, Filip and Zheng, Yili},
+  title     = {Oversubscription on Multicore Processors},
+  booktitle = {24th IEEE International Parallel and Distributed Processing Symposium (IPDPS)},
+  pages     = {1--11},
+  year      = {2010},
+  publisher = {IEEE},
+  doi       = {10.1109/IPDPS.2010.5470434},
+}
+
+@inproceedings{Amdahl1967,
+  author    = {Amdahl, Gene M.},
+  title     = {Validity of the single processor approach to achieving large scale computing capabilities},
+  booktitle = {Proceedings of the April 18--20, 1967, Spring Joint Computer Conference},
+  series    = {{AFIPS} '67 (Spring)},
+  year      = {1967},
+  pages     = {483--485},
+  publisher = {ACM},
+  address   = {New York, NY, USA},
+  doi       = {10.1145/1465482.1465560},
+}
+
+@article{Gustafson1988,
+  author    = {Gustafson, John L.},
+  title     = {Reevaluating {Amdahl}'s law},
+  journal   = {Communications of the {ACM}},
+  year      = {1988},
+  volume    = {31},
+  number    = {5},
+  pages     = {532--533},
+  month     = may,
+  doi       = {10.1145/42411.42415},
+}
+
+@inproceedings{eichenberger2012affinity,
+  author    = {Eichenberger, Alexandre E. and Terboven, Christian
+               and Wong, Michael and an Mey, Dieter},
+  title     = {The Design of {OpenMP} Thread Affinity},
+  booktitle = {OpenMP in a Heterogeneous World, 8th International Workshop on OpenMP, IWOMP 2012},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {7312},
+  pages     = {15--28},
+  publisher = {Springer},
+  address   = {Berlin, Heidelberg},
+  year      = {2012},
+  doi       = {10.1007/978-3-642-30961-8_2},
+}
+
+@manual{menage2004cgroups,
+  author       = {Paul Menage},
+  title        = {Control Groups},
+  organization = {The Linux Kernel Archives},
+  year         = {2004},
+  note         = {Linux kernel documentation},
+  url          = {https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt}
+}
+
+@inproceedings{Eichenberger2013ompt,
+  author    = {Eichenberger, Alexandre E. and Mellor-Crummey, John M. and Schulz, Martin
+               and Wong, Michael and Copty, Nawal and Dietrich, Robert and Liu, Xu
+               and Loh, Eugene and Lorenz, Daniel},
+  title     = {{OMPT}: An {OpenMP} Tools Application Programming Interface for Performance Analysis},
+  booktitle = {Using and Improving {OpenMP} for Devices, Tasks, and More},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {8122},
+  pages     = {171--185},
+  year      = {2013},
+  publisher = {Springer},
+  address   = {Heidelberg},
+  doi       = {10.1007/978-3-642-40698-0_13},
+}
+
+@inproceedings{Protze2015ompd,
+  author    = {Protze, Joachim and Laguna, Ignacio and Ahn, Dong H. and DelSignore, John
+               and Burton, Ariel and Schulz, Martin and M{\"u}ller, Matthias S.},
+  title     = {Lessons Learned from Implementing {OMPD}: A Debugging Interface for {OpenMP}},
+  booktitle = {{OpenMP}: Heterogenous Execution and Data Movements},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {9342},
+  pages     = {89--101},
+  year      = {2015},
+  publisher = {Springer},
+  address   = {Cham},
+  doi       = {10.1007/978-3-319-24595-9_7},
+}
+
+@article{fedotov_case_nodate,
+	title = {A {Case} {Study} for {Resolving} {Composability} {Issue} {Using} a {Shared} {CPU} {Resource} {Coordinator}},
+	author = {Fedotov, Aleksei and Voss, Michael and Isaev, Ilya},
+}
+
+@inproceedings{damico_drom_2018,
+	address = {Eugene OR USA},
+	title = {{DROM}: {Enabling} {Efficient} and {Effortless} {Malleability} for {Resource} {Managers}},
+	isbn = {978-1-4503-6523-9},
+	url = {https://dl.acm.org/doi/10.1145/3229710.3229752},
+	doi = {10.1145/3229710.3229752},
+	booktitle = {Proceedings of the 47th {International} {Conference} on {Parallel} {Processing} {Companion}},
+	publisher = {ACM},
+	author = {D'Amico, Marco and Garcia-Gasulla, Marta and L{\'o}pez, V{\'i}ctor and Jokanovic, Ana and Sirvent, Ra{\"u}l and Corbalan, Julita},
+	month = aug,
+	year = {2018},
+	pages = {1--10},
+}
+
+@article{garcia2014hints,
+  author    = {Garcia, Marta and Labarta, Jes{\'u}s and Corbalan, Julita},
+  title     = {Hints to improve automatic load balancing with {LeWI} for hybrid applications},
+  journal   = {Journal of Parallel and Distributed Computing},
+  volume    = {74},
+  number    = {9},
+  pages     = {2781--2794},
+  year      = {2014},
+  doi       = {10.1016/j.jpdc.2014.05.004},
+}
+
+@article{schreiber_case_2018,
+	title = {A {Case} {Study} for a {New} {Invasive} {Extension} of {Intel}'s {Threading} {Building} {Blocks}},
+	url = {https://mediatum.ub.tum.de/1428538},
+	doi = {10.14459/2018MD1428538},
+	publisher = {mediaTUM},
+	author = {Schreiber, Martin and Weinzierl, Tobias},
+	month = jan,
+	year = {2018},
+	pages = {21--26},
+}
+
+@article{schreiber_cluster-based_nodate,
+	title = {Cluster-{Based} {Parallelization} of {Simulations} on {Dynamically} {Adaptive} {Grids} and {Dynamic} {Resource} {Management}},
+	author = {Schreiber, Martin},
+}
+
+@incollection{mcintosh-smith_openmp_2021,
+	address = {Cham},
+	title = {An {OpenMP} {Free} {Agent} {Threads} {Implementation}},
+	volume = {12870},
+	isbn = {978-3-030-85261-0},
+	url = {https://link.springer.com/10.1007/978-3-030-85262-7_15},
+	doi = {10.1007/978-3-030-85262-7_15},
+	booktitle = {{OpenMP}: {Enabling} {Massive} {Node}-{Level} {Parallelism}},
+	publisher = {Springer International Publishing},
+	author = {Lopez, Victor and Criado, Joel and Pe{\~n}acoba, Ra{\'u}l and Ferrer, Roger and Teruel, Xavier and Garcia-Gasulla, Marta},
+	editor = {McIntosh-Smith, Simon and De Supinski, Bronis R. and Klinkenberg, Jannis},
+	year = {2021},
+	series    = {Lecture Notes in Computer Science},
+	pages = {211--225},
+}
+
+@article{fecht_simulation_nodate,
+	title = {A {Simulation} {Layer} for {Dynamically} {Varying} {Computing} {Resources} in {MPI}},
+	author = {Fecht, Jan},
+}
+
+@article{jin_openmp_nodate,
+	title = {The {OpenMP} {Implementation} of {NAS} {Parallel} {Benchmarks} and {Its} {Performance}},
+	author = {Jin, H and Frumkin, M and Yan, J},
+}
+
+@inproceedings{yoo2003slurm,
+  author    = {Yoo, Andy B. and Jette, Morris A. and Grondona, Mark},
+  title     = {{SLURM}: Simple {Linux} Utility for Resource Management},
+  booktitle = {Job Scheduling Strategies for Parallel Processing, JSSPP 2003},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {2862},
+  pages     = {44--60},
+  publisher = {Springer},
+  address   = {Berlin, Heidelberg},
+  year      = {2003},
+  doi       = {10.1007/10968987_3},
+}

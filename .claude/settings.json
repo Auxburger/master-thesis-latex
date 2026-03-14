@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/darius/uni/master-thesis/**)"
+    ]
+  }
+}

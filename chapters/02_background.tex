@@ -1,0 +1,41 @@
+% !TeX root = ../main.tex
+
+\chapter{Background and Foundations}\label{chapter:background}
+
+This section introduces the fundamental concepts required to understand dynamic resource management in OpenMP runtimes. It covers the OpenMP execution and runtime model, the lifecycle of threads and the use of thread pools in OpenMP implementations, core concepts of dynamic resource management, and an overview of related work and existing approaches.
+
+\section{OpenMP Execution and Runtime Model}
+
+OpenMP is a directive-based programming model for shared-memory parallelism that follows a fork--join execution paradigm~\parencite{dagum_openmp_1998}. A program starts execution in a single master thread. When a parallel region is encountered, the master thread forks a team of worker threads, which execute the parallel region concurrently. At the end of the region, the worker threads synchronize and join back into a single thread of execution.
+
+The OpenMP standard defines the semantics of parallel regions, synchronization constructs, and work-sharing constructs, while leaving many implementation details to the runtime~\parencite{openmp60}. The number of threads used in a parallel region can be influenced by clauses such as \texttt{num\_threads}, internal control variables (ICVs), and environment variables such as \texttt{OMP\_NUM\_THREADS} and \texttt{OMP\_DYNAMIC}. However, the standard does not prescribe how threads are created, managed, or reused internally by a runtime.
+
+Crucially, OpenMP does not allow changes to the team size while a parallel region is active~\parencite{openmp60}. Decisions about the number of threads must therefore be made at well-defined synchronization points, most notably at the fork barrier when entering a parallel region. This restriction strongly influences the design space for dynamic resource management in OpenMP.
+
+\section{Thread Lifecycle and Thread Pools in OpenMP Runtimes}
+
+Most modern OpenMP runtimes, including the LLVM OpenMP runtime~\parencite{noauthor_welcome_nodate}, implement thread management using thread pools rather than creating and destroying threads for each parallel region. Threads are typically created lazily, often during the first parallel region that requires them, and are subsequently reused across multiple regions.
+
+Once created, worker threads may transition between active and inactive states. Inactive threads may either spin-wait, sleep, or remain parked depending on runtime configuration and environment variables such as \texttt{OMP\_WAIT\_POLICY}~\parencite{openmp60}. Terminating threads is usually avoided due to the high overhead associated with thread creation, and thread pools often grow monotonically up to the maximum number of threads ever required by the application. Threads are commonly only reclaimed when the runtime shuts down.
+
+These behaviors are considered quality-of-implementation aspects rather than standardized features. As a result, different OpenMP runtimes may exhibit different strategies with respect to thread reuse, sleep states, and pool growth. Understanding these implementation choices is essential for assessing the feasibility and cost of dynamic resource management mechanisms.
+
+\section{Dynamic Resource Management Concepts}
+
+Dynamic resource management refers to the ability of a system to adapt its use of computational resources at runtime in response to changing workloads, system load, or external constraints. In the context of parallel applications, this often involves adjusting the degree of parallelism, such as the number of threads or cores used.
+
+Two closely related concepts are commonly distinguished~\parencite{Feitelson1996}. Elasticity refers to the ability to adjust resource usage between parallel regions or phases of execution, while malleability describes the ability to change resource allocation during an active parallel phase~\parencite{Aliaga2022survey}. Due to OpenMP's execution model and semantic constraints, this thesis focuses on elastic resource management rather than malleable execution.
+
+Dynamic resource management is often motivated by oversubscription scenarios~\parencite{iancu2010oversubscription}, multi-application workloads, or co-execution with other parallel libraries. Performance models such as Amdahl's law~\parencite{Amdahl1967} and Gustafson's law~\parencite{Gustafson1988} provide useful intuition for understanding how changes in parallelism affect overall performance, and they inform the design and evaluation of resource management policies.
+
+Resource management can be implemented at different levels, ranging from operating-system mechanisms such as CPU affinity~\parencite{eichenberger2012affinity} and control groups~\parencite{menage2004cgroups} to runtime-level decisions within a parallel programming framework. This work focuses on runtime-level resource management, as it allows decisions to be made with knowledge of the OpenMP execution structure while remaining portable across platforms.
+
+\section{Related Work and Existing Approaches}
+
+Several approaches related to resource management in OpenMP and parallel runtimes have been proposed. The OpenMP Tools (OMPT)~\parencite{Eichenberger2013ompt} and Debug (OMPD)~\parencite{Protze2015ompd} interfaces provide standardized mechanisms for observing runtime behavior, but they are explicitly designed for monitoring and debugging rather than active control of resource allocation.
+
+External resource managers, such as operating-system-level mechanisms or runtime coordination frameworks, have been explored to manage resource sharing between multiple parallel applications or libraries. Examples include control-group-based approaches~\parencite{menage2004cgroups} and coordination frameworks such as the Thread Composability Manager (TCM)~\parencite{fedotov_case_nodate}. While these systems aim to provide global resource coordination, their integration with OpenMP runtimes is limited by the lack of standardized control interfaces.
+
+Previous research has investigated dynamic resource allocation, adaptive parallelism, and elastic execution in high-performance computing~\parencite{Aliaga2022survey}. Approaches such as DROM~\parencite{damico_drom_2018} and dynamic load balancing via the LeWI algorithm~\parencite{garcia2014hints} demonstrate that runtime-level malleability and thread count adaptation can yield measurable performance improvements. Complementary work explores dynamic core reassignment between MPI ranks parallelized with TBB~\parencite{schreiber_case_2018} and cluster-based resource management for adaptive grid simulations~\parencite{schreiber_cluster-based_nodate}. However, many of these approaches rely on application-specific modifications, custom runtimes, or assumptions that are not directly compatible with existing OpenMP implementations.
+
+Overall, existing work highlights both the potential benefits of dynamic resource management and the limitations imposed by current OpenMP standards and runtime interfaces. These gaps motivate the exploration of runtime-integrated mechanisms and the development of proposals for standardized support for dynamic resource management in OpenMP.

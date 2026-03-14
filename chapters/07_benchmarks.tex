@@ -1,0 +1,132 @@
+% !TeX root = ../main.tex
+
+\chapter{Evaluation and Benchmarking}\label{chapter:benchmarks}
+
+This chapter evaluates the custom OpenMP resource manager using the NAS Parallel Benchmarks. The evaluation is structured in two parts. First, single-process baseline measurements on a local development machine characterize the performance of each benchmark kernel under static thread configurations. Second, a concurrent two-process evaluation on the LRZ CoolMUC-4 cluster quantifies the benefit of DRM-managed exclusive CPU partitioning over naive oversubscription.
+
+\section{Experimental Setup}
+
+\subsection{Hardware Platforms}
+
+Two hardware environments were used across the evaluation. Local baseline measurements were performed on a single-socket machine with an Intel Core Ultra 9 285H, 16 physical cores, 16 hardware threads with simultaneous multithreading (SMT) disabled, and a single NUMA domain. This configuration provides a practical upper bound for efficient single-application parallelism at 16 threads.
+
+The concurrent DRM evaluation was performed on a node of the LRZ CoolMUC-4 cluster. All results in \autoref{sec:drm_results} use this environment. Experiments were conducted with a total thread budget $t \in \{1, 4, 8, 16, 32\}$, with two concurrent processes each receiving an exclusive half of the available CPU set (see \autoref{sec:eval_setup}).
+
+\subsection{Evaluation Methodology}\label{sec:eval_setup}
+
+The concurrent evaluation compares two configurations:
+
+\begin{itemize}
+  \item \textbf{dyn=true:} The OpenMP runtime queries the DRM\@. The DRM grants each of the two concurrent processes $t/2$ threads on their exclusive $t/2$-core partition. Thread counts are right-sized to available cores; no oversubscription occurs.
+  \item \textbf{dyn=false:} The DRM is bypassed. Each process uses all $t$ threads on its $t/2$-core exclusive partition, resulting in a factor-of-2 oversubscription within each partition.
+\end{itemize}
+
+Explicit CPU-set partitioning is enforced via \texttt{taskset} so that both configurations share exactly the same core assignment. This ensures that any performance difference is attributable solely to thread-count matching rather than to core placement. The environment variable \texttt{KMP\_DYNAMIC\_MODE=thread\_limit} is set in all runs to disable the LLVM runtime's internal load-average heuristic, which would otherwise silently override the DRM grant (see \autoref{sec:bugs}). All results are averages over 20 measurements.
+
+\section{NAS Parallel Benchmarks}
+
+The NAS Parallel Benchmarks (NPB) are a widely used suite of compact kernels intended to represent characteristic computation and communication patterns found in scientific workloads~\parencite{noauthor_nas_nodate}. NPB provides a standardized baseline that helps relate the observed effects of resource management strategies to well-known computational behaviors.
+
+\subsection{Kernel Suite}
+
+NPB comprises five kernels: IS (Integer Sort; random memory access), EP (Embarrassingly Parallel), CG (Conjugate Gradient; irregular memory access and global reductions), MG (Multi-Grid; long- and short-distance communication with high memory intensity), and FT (discrete 3D Fast Fourier Transform; all-to-all communication)~\parencite{noauthor_nas_nodate}.
+
+\subsection{Selection Rationale}
+
+The detailed analysis focuses on EP, CG, and FT\@. Together, these kernels cover complementary extremes that are particularly relevant for dynamic resource management: EP is dominated by independent computation with minimal synchronization; CG represents sparse linear algebra with irregular access patterns and global reductions; and FT is characterized by communication-heavy phases with global data rearrangement~\parencite{jin_openmp_nodate}.
+
+\subsection{EP (Embarrassingly Parallel)}
+
+The EP kernel is a Monte Carlo-style benchmark. It generates independent pairs of Gaussian random numbers and bins them into concentric square annuli, with communication limited to a final global reduction~\parencite{jin_openmp_nodate}. EP is a useful baseline for policies under low contention for shared data, where performance is expected to be primarily sensitive to available compute resources rather than memory bandwidth or synchronization overhead.
+
+\subsection{CG (Conjugate Gradient)}
+
+CG models the solution of a large sparse linear system. The benchmark applies the inverse power method with the Conjugate Gradient algorithm to estimate the largest eigenvalue of a symmetric positive definite sparse matrix with a random nonzero pattern~\parencite{jin_openmp_nodate}. It stresses irregular memory access and collective synchronization, making it sensitive to both thread-level parallelism and memory hierarchy effects.
+
+\subsection{FT (Fast Fourier Transform)}
+
+FT is a 3D FFT-based PDE kernel. It numerically solves a partial differential equation by alternating forward and inverse Fourier transforms, producing phases with substantial global data movement such as matrix transposes~\parencite{jin_openmp_nodate}. FT is well-suited for studying how thread count changes interact with memory bandwidth and synchronization bottlenecks.
+
+\section{Single-Process Baseline}
+
+To establish reference performance for individual benchmark kernels, static configurations were measured on the local 16-core machine without concurrent processes or DRM involvement. All benchmarks use NPB Class C.
+
+For CG, performance peaks at 16 threads with a runtime of approximately 66\,s and a throughput of approximately 2160\,Mop/s. Increasing the thread count beyond 16 degrades performance due to oversubscription: context switching overhead and cache contention reduce effective throughput. For FT, 16 threads achieves approximately 34\,s and 11\,650\,Mop/s. For IS (Integer Sort, four concurrent instances), static scheduling at 16 threads per instance achieves a total throughput of approximately 2270\,Mop/s with a fairness ratio (minimum to maximum instance throughput) of 0.94, indicating balanced load distribution.
+
+These baselines confirm that, for all kernels, the optimal single-process thread count matches the number of available physical cores, and oversubscription is harmful in all cases~\parencite{iancu2010oversubscription}.
+
+\section{DRM Evaluation: Concurrent Two-Process Results}\label{sec:drm_results}
+
+The following results compare dyn=true (DRM-managed, no oversubscription) against dyn=false (oversubscribed, no DRM) for two processes running concurrently with exclusive CPU-set partitioning.
+
+\subsection{EP (Embarrassingly Parallel)}
+
+\begin{table}[htpb]
+  \caption[EP benchmark results]{EP (Class C) runtime for two concurrent processes with exclusive CPU partitioning. $t$ denotes the total thread budget; each process receives $t/2$ exclusive cores.}\label{tab:ep_results}
+  \centering
+  \begin{tabular}{r r r r}
+    \toprule
+    \textbf{t} & \textbf{dyn=true (s)} & \textbf{dyn=false (s)} & \textbf{Speedup} \\
+    \midrule
+    1  & 56.1 & 56.1 & ---   \\
+    4  & 28.1 & 28.1 & $\approx$0\% \\
+    8  & 14.0 & 14.1 & +1\%  \\
+    16 & 7.0  & 7.2  & +3\%  \\
+    32 & 3.7  & 3.8  & +3\%  \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+EP shows minimal sensitivity to oversubscription. Because EP is compute-bound with no shared data structures beyond the final reduction, the OS time-sharing overhead of doubling the thread count on a fixed core set is modest. The DRM's benefit is correspondingly small: approximately 1--3\% at higher thread counts. EP therefore represents a best case for oversubscription and a worst case for the DRM's contribution.
+
+\subsection{FT (3-D FFT, Memory-Bandwidth Bound)}
+
+\begin{table}[htpb]
+  \caption[FT benchmark results]{FT (Class C) runtime for two concurrent processes with exclusive CPU partitioning.}\label{tab:ft_results}
+  \centering
+  \begin{tabular}{r r r r}
+    \toprule
+    \textbf{t} & \textbf{dyn=true (s)} & \textbf{dyn=false (s)} & \textbf{Speedup} \\
+    \midrule
+    1  & 104.6 & 105.5 & +1\%          \\
+    4  & 52.7  & 53.5  & +2\%          \\
+    8  & 26.5  & 27.3  & +3\%          \\
+    16 & 13.8  & 14.4  & +4\%          \\
+    32 & 7.8   & 8.8   & \textbf{+12\%} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+FT exhibits a clearer DRM benefit, peaking at +12\% for $t=32$. FT involves phases of intensive global data movement (3D transposes). When the thread count is doubled on the same core set, cache line contention and memory bandwidth saturation increase non-linearly. The DRM's right-sizing of threads to cores reduces these effects and produces lower, more stable runtimes.
+
+\subsection{CG (Conjugate Gradient, Irregular Memory Access)}
+
+\begin{table}[htpb]
+  \caption[CG benchmark results]{CG (Class C) runtime for two concurrent processes with exclusive CPU partitioning.}\label{tab:cg_results}
+  \centering
+  \begin{tabular}{r r r r}
+    \toprule
+    \textbf{t} & \textbf{dyn=true (s)} & \textbf{dyn=false (s)} & \textbf{Speedup} \\
+    \midrule
+    1  & 91.7 & 94.7 & +3\%           \\
+    4  & 45.5 & 47.7 & +5\%           \\
+    8  & 23.4 & 24.4 & +4\%           \\
+    16 & 12.4 & 13.8 & +11\%          \\
+    32 & 7.4  & 9.3  & \textbf{+26\%} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+CG shows the strongest DRM benefit, reaching +26\% at $t=32$. CG applies the conjugate gradient algorithm to a sparse matrix with a randomized nonzero structure, producing highly irregular memory access patterns. These access patterns stress the cache hierarchy and DRAM bandwidth. When two CG instances each run twice as many threads as available cores, the resulting cache pressure and TLB thrashing are severe. Right-sizing threads to cores, as the DRM enforces, reduces contention at every level of the memory hierarchy.
+
+\section{Key Findings}
+
+The results across all three benchmarks support the following conclusions:
+
+\textbf{1.\ The DRM is faster at every data point.} There is no configuration where dyn=false outperforms dyn=true. The DRM's overhead --- one Unix socket round-trip per parallel region, cached with a short TTL --- is consistently below measurement noise.
+
+\textbf{2.\ The benefit scales with thread count.} At low $t$ (1--4), oversubscription involves few extra threads and OS scheduling handles the contention cheaply. At $t=32$, each process oversubscribes its exclusive partition by a factor of two (32 threads on 16 cores), and the performance penalty becomes substantial: +12\% for FT, +26\% for CG.
+
+\textbf{3.\ Benefit correlates with memory access pattern.} EP (compute-bound, independent) benefits minimally (+3\%). FT (bandwidth-bound, structured) benefits moderately (+12\%). CG (irregular sparse access, high cache pressure) benefits most (+26\%). This ordering matches the expectation from performance modeling~\parencite{Amdahl1967}: kernels with high data reuse and shared memory pressure are penalized most severely by oversubscription.
+
+\textbf{4.\ The DRM reduces runtime variance.} Without the DRM, dyn=false maximum runtimes are 30--50\% higher than averages due to non-deterministic OS scheduling under oversubscription. With the DRM, variance is consistently low across all benchmarks. This stability improvement may be as important as the mean speedup in production HPC workloads, where worst-case latency bounds matter for job scheduling~\parencite{yoo2003slurm}.

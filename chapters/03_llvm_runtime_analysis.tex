@@ -1,0 +1,89 @@
+% !TeX root = ../main.tex
+
+\chapter{Empirical Analysis of the LLVM OpenMP Runtime}\label{chapter:llvm_runtime_analysis}
+
+This chapter presents an empirical analysis of the LLVM OpenMP runtime (\texttt{libomp}) with respect to thread management and resource usage. The objective is to understand how threads are created, reused, and managed across parallel regions in practice, and to identify the constraints and control points relevant for dynamic resource management.
+
+\section{Experimental Setup}
+
+All experiments were conducted using the LLVM OpenMP runtime (\texttt{libomp}) as provided by the Clang/LLVM toolchain. Unless stated otherwise, OpenMP programs were compiled using Clang with OpenMP support enabled. The analysis focuses on CPU-based execution and shared-memory parallelism.
+
+To observe runtime behavior, OpenMP environment variables were used to control thread placement, affinity, and runtime verbosity. Runtime debug output as well as operating-system-level inspection tools were employed to trace thread creation, reuse, and lifecycle events. Simple OpenMP microbenchmarks consisting of multiple parallel regions with varying thread counts were used to isolate runtime behavior from application-specific effects.
+
+\section{Thread Creation, Reuse, and Pool Behavior}
+
+An initial set of experiments investigates how worker threads are created and managed by the OpenMP runtime. When a parallel region is encountered for the first time, the runtime creates a team of worker threads according to the requested team size. Thread creation is typically performed lazily, meaning that threads are spawned only when they are first required.
+
+Once created, worker threads are not terminated at the end of a parallel region. Instead, they transition into an inactive state and remain part of an internal thread pool. Subsequent parallel regions may reuse these existing threads, avoiding the overhead associated with repeated thread creation. The thread pool grows monotonically to accommodate the maximum number of threads ever requested during program execution.
+
+Thread termination is generally deferred until the runtime shuts down at program termination. This behavior reflects a quality-of-implementation decision that prioritizes low overhead and fast re-entry into parallel regions over aggressive resource reclamation.
+
+\section{Behavior Across Multiple Parallel Regions}
+
+To further analyze runtime behavior, multiple parallel regions with varying team sizes were executed sequentially within a single process. The experiments show that reducing the requested number of threads in later parallel regions does not lead to a reduction in the size of the thread pool. Threads that are no longer required remain allocated but inactive.
+
+Operating-system-level inspection confirms that threads persist across parallel regions even when the active team size decreases. The runtime distinguishes between active and inactive threads, but does not dynamically shrink the pool. As a result, resource usage in terms of allocated threads reflects the maximum parallelism reached during execution rather than the current requirements of individual regions.
+
+These observations are consistent with the OpenMP standard, which specifies the semantics of parallel regions but leaves internal thread management strategies to the runtime implementation.
+
+\section{Implications for Dynamic Resource Management}
+
+The empirical findings have several important implications for dynamic resource management in OpenMP runtimes. First, the fork barrier at the beginning of a parallel region represents the primary safe point at which decisions about resource allocation can be made. The OpenMP execution model does not permit changes to the number of threads during the execution of a parallel region.
+
+Second, since thread pools are typically persistent and grow monotonically, dynamic resource management should focus on controlling the number of active threads rather than the creation or destruction of threads. Mechanisms such as thread sleeping, parking, or selective activation are therefore more practical than aggressive thread termination.
+
+Finally, the absence of standardized interfaces for influencing runtime decisions highlights a gap between what is semantically allowed by the OpenMP standard and what is practically supported by existing runtimes. These observations motivate the exploration of runtime-integrated resource management mechanisms and inform the design space discussed in subsequent chapters.
+
+\section{Overview of LLVM}
+
+The LLVM project (originally ``Low Level Virtual Machine'') has evolved into a widely used compiler infrastructure that provides a modular and reusable toolchain for programming languages~\parencite{lattner_llvm_2004}. Its core concept is the separation of the compilation process into three main stages: \textit{front-end, optimizer, and back-end}.
+
+In the front-end, source code written in high-level languages (e.g., C/C++ via Clang, Swift, or Rust) is translated into a common intermediate representation (LLVM IR). This IR is a low-level, static single assignment (SSA)-based code representation that resembles assembly language while remaining platform-independent. The use of a uniform IR enables language front-ends to share the same optimization and code generation infrastructure.
+
+The middle layer, often referred to as the optimizer, applies a configurable pipeline of transformation passes to the LLVM IR\@. These passes perform a wide range of optimizations such as constant propagation, dead-code elimination, inlining, and loop unrolling. Since the IR is target-independent, the majority of these optimizations can be applied consistently across different architectures.
+
+In the final stage, the back-end lowers the optimized IR into target-specific machine code. This involves instruction selection, register allocation, instruction scheduling, and code emission. LLVM supports a wide variety of architectures (x86, ARM, RISC-V, PowerPC, among others), which allows the same high-level source code to be compiled efficiently for diverse platforms~\parencite{noauthor_llvm_nodate}.
+
+Due to this modular architecture, LLVM has become the foundation of many modern programming languages and toolchains. Beyond traditional compilation, it is also widely employed in just-in-time (JIT) compilation, GPU programming, and static program analysis, making it a central component in both academic research and industrial applications.
+
+\section{Dynamic Resource Management in the OpenMP Runtime}
+
+OpenMP parallel regions in Clang/LLVM are ultimately lowered into calls to the OpenMP runtime library (\texttt{libomp})~\parencite{noauthor_welcome_nodate}. A central entry point is the function \texttt{\_\_kmpc\_fork\_call}, which is generated by Clang whenever a \texttt{\#pragma omp parallel} directive is encountered. This function is responsible for initializing a new team of threads and invoking the corresponding microtask function that represents the user's parallel region.
+
+In the current implementation, the number of threads participating in a team is derived from environment variables (e.g., \texttt{OMP\_NUM\_THREADS}), runtime settings, or heuristics within the runtime system itself. While this approach is sufficient for static or semi-static resource allocation, it lacks the ability to adapt dynamically to system load, heterogeneous architectures, or energy constraints~\parencite{noauthor_welcome_nodate}.
+
+To enable dynamic resource management, the OpenMP runtime is the most effective integration point. Unlike modifications at the compiler or IR level, which would require changes to Clang's front-end or the LLVM optimizer pipeline, runtime-level adaptation allows resource allocation policies to be evaluated and enforced at execution time. This is critical for scenarios where system load, available devices, or power budgets fluctuate dynamically.
+
+A practical design involves introducing a \textit{Resource Manager} as an intermediate layer within the runtime. The manager intercepts team creation in \texttt{\_\_kmp\_fork\_call} and determines the appropriate resource allocation strategy. Conceptually, it can expose the following interface:
+
+\begin{lstlisting}[language=C++]
+class ResourceManager {
+public:
+    static ResourceManager& getInstance();
+
+    int decide_num_threads(const ident_t *loc, int requested);
+    void assign_resources(int team_id, int num_threads);
+    void release_resources(int team_id);
+};
+\end{lstlisting}
+
+This manager is invoked during the fork process:
+
+\begin{lstlisting}[language=C++]
+int requested = num_threads_from_env_or_runtime();
+int nthreads = ResourceManager::getInstance().decide_num_threads(loc, requested);
+
+__kmp_allocate_team(gtid, nthreads);
+ResourceManager::getInstance().assign_resources(team_id, nthreads);
+\end{lstlisting}
+
+Such a design provides a central hook for implementing different resource management policies, including:
+
+\begin{itemize}
+  \item System-load aware policies, where the number of threads adapts to CPU utilization.
+  \item NUMA-aware placement, where threads are bound to the closest memory domains.
+  \item Hybrid CPU/GPU distribution, in combination with \texttt{libomptarget} for accelerator offloading.
+  \item Energy-aware scheduling, where parallelism is reduced under thermal or power limits.
+\end{itemize}
+
+This approach has several advantages for research and evaluation. First, it separates policy from mechanism, allowing new allocation strategies to be plugged into the runtime without modifying the compiler. Second, it provides fine-grained control at the point of execution, enabling reproducible experiments with dynamic scheduling, resource elasticity, and heterogeneous execution. Finally, it extends OpenMP's otherwise static resource management model, aligning it with modern trends in adaptive runtime systems and performance-portable computing~\parencite{Aliaga2022survey}.

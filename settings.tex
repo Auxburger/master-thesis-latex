@@ -96,6 +96,16 @@
   cycle list={TUMBlue\\TUMAccentOrange\\TUMAccentGreen\\TUMSecondaryBlue2\\TUMDarkGray\\},
 }
 
+% Rust language definition for listings
+\lstdefinelanguage{Rust}{
+  keywords={fn, let, mut, pub, use, struct, impl, enum, match, if, else, for, while, loop, return, self, Self, true, false, const, static, type, trait, where, mod, extern, crate, super, ref, move, async, await, dyn, unsafe, in},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  string=[b]",
+  morestring=[b]',
+}
+
 % Settings for lstlistings
 \lstset{%
   basicstyle=\ttfamily,
@@ -103,5 +113,6 @@
   autogobble,
   keywordstyle=\bfseries\color{TUMBlue},
   stringstyle=\color{TUMAccentGreen},
+  commentstyle=\color{TUMGray},
   captionpos=b
 }

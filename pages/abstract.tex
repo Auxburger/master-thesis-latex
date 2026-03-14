@@ -1,3 +1,10 @@
 \chapter{\abstractname}
 
-%TODO: Abstract
+This thesis addresses the implementation of dynamic resource management in OpenMP, focusing on the allocation and management of CPU cores---and potentially GPUs---during program execution. Although the \texttt{OMP\_DYNAMIC} flag has been part of the OpenMP standard for over two decades, it has not been fully realized in practice. The work extends parallel regions in LLVM/OpenMP to enable the addition and removal of threads at runtime, thereby improving flexibility and resource utilization. An in-depth analysis of existing thread pool and worker thread mechanisms in libomp is conducted, and the feasibility of integrating a resource manager communication structure is explored. Compatibility with the OpenMP standard is evaluated, with necessary adaptations or deprecations proposed. The integration is designed to be accessible via environment variables or API\@. The effectiveness of the approach is assessed through comprehensive benchmarks, focusing on performance, overhead, and compatibility.
+
+\begin{otherlanguage}{ngerman}
+\chapter*{Zusammenfassung}
+\addcontentsline{toc}{chapter}{Zusammenfassung}
+
+Diese Arbeit befasst sich mit der Implementierung eines dynamischen Ressourcenmanagements in OpenMP, insbesondere mit der Zuteilung und Verwaltung von CPU-Kernen -- und potenziell auch GPUs -- während der Programmausführung. Obwohl das \texttt{OMP\_DYNAMIC}-Flag seit über zwei Jahrzehnten Teil des OpenMP-Standards ist, wurde es bislang nicht vollständig umgesetzt. Im Rahmen dieser Arbeit werden parallele Regionen in LLVM/OpenMP so erweitert, dass das Hinzufügen und Entfernen von Threads zur Laufzeit ermöglicht wird, um Flexibilität und Ressourcenausnutzung zu verbessern. Es erfolgt eine detaillierte Analyse der bestehenden Thread-Pool- und Worker-Thread-Mechanismen in libomp sowie eine Untersuchung der Machbarkeit einer Kommunikationsstruktur für das Ressourcenmanagement. Die Kompatibilität mit dem OpenMP-Standard wird bewertet und notwendige Anpassungen oder Verwerfungen werden vorgeschlagen. Die Integration ist so gestaltet, dass sie über Umgebungsvariablen oder eine API zugänglich ist. Die Wirksamkeit des Ansatzes wird anhand umfassender Benchmarks hinsichtlich Performance, Overhead und Kompatibilität bewertet.
+\end{otherlanguage}

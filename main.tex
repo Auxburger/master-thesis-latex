@@ -6,19 +6,18 @@
 %\documentclass[headsepline,footsepline,footinclude=false,fontsize=11pt,paper=a4,listof=totoc,bibliography=totoc,BCOR=12mm,DIV=12]{scrbook} % two-sided
 \documentclass[headsepline,footsepline,footinclude=false,oneside,fontsize=11pt,paper=a4,listof=totoc,bibliography=totoc]{scrbook} % one-sided
 
-% TODO: change thesis information
 \newcommand*{\getUniversity}{Technische Universität München}
 \newcommand*{\getFaculty}{Informatics}
-\newcommand*{\getDegree}{Informatics}
+\newcommand*{\getDegree}{Computer Science}
 \newcommand*{\getSchool}{Computation, Information and Technology}
-\newcommand*{\getTitle}{Thesis title}
-\newcommand*{\getTitleGer}{Titel der Abschlussarbeit}
-\newcommand*{\getAuthor}{Author}
-\newcommand*{\getDoctype}{Bachelor's Thesis, Master's Thesis, \ldots}
-\newcommand*{\getSupervisor}{Supervisor}
-\newcommand*{\getAdvisor}{Advisor}
-\newcommand*{\getKeywords}{keyword;another keyword;one more}
-\newcommand*{\getSubmissionDate}{Submission date}
+\newcommand*{\getTitle}{Dynamic Resource Management in OpenMP}
+\newcommand*{\getTitleGer}{Dynamische Ressourcenverwaltung in OpenMP}
+\newcommand*{\getAuthor}{Darius Augsburger}
+\newcommand*{\getDoctype}{Master's Thesis}
+\newcommand*{\getSupervisor}{Prof. Dr. Martin Schulz}
+\newcommand*{\getAdvisor}{Prof. Dr. Martin Schreiber}
+\newcommand*{\getKeywords}{OpenMP;dynamic resource management;LLVM;thread pool;HPC}
+\newcommand*{\getSubmissionDate}{October 15, 2026}
 \newcommand*{\getSubmissionLocation}{Munich}
 
 % TODO: change citation style in settings
@@ -37,6 +36,7 @@
 \input{pages/disclaimer}
 \input{pages/acknowledgments}
 \input{pages/abstract}
+\input{pages/transparency}
 \microtypesetup{protrusion=false}
 \tableofcontents{}
 \microtypesetup{protrusion=true}
@@ -44,7 +44,14 @@
 \mainmatter{}
 
 \input{chapters/01_introduction}
-% TODO: add more chapters here
+\input{chapters/02_background}
+\input{chapters/03_llvm_runtime_analysis}
+\input{chapters/04_design_space}
+\input{chapters/05_poc_tcm}
+\input{chapters/06_custom_rm}
+\input{chapters/07_benchmarks}
+\input{chapters/08_standardization}
+\input{chapters/09_summary}
 
 \appendix{}
 
@@ -54,7 +61,22 @@
 \begin{acronym}
 	\itemsep-.25\baselineskip
 	\acro{TUM}[TUM]{Technical University of Munich}
-	% TODO: add acronyms
+	\acro{HPC}[HPC]{High-Performance Computing}
+	\acro{DRM}[DRM]{Dynamic Resource Management}
+	\acro{ICV}[ICV]{Internal Control Variable}
+	\acro{IR}[IR]{Intermediate Representation}
+	\acro{SSA}[SSA]{Static Single Assignment}
+	\acro{JIT}[JIT]{Just-In-Time}
+	\acro{NUMA}[NUMA]{Non-Uniform Memory Access}
+	\acro{OMPT}[OMPT]{OpenMP Tools Interface}
+	\acro{OMPD}[OMPD]{OpenMP Debug Interface}
+	\acro{TCM}[TCM]{Thread Composability Manager}
+	\acro{DLB}[DLB]{Dynamic Load Balancing}
+	\acro{NPB}[NPB]{NAS Parallel Benchmarks}
+	\acro{MPI}[MPI]{Message Passing Interface}
+	\acro{FFT}[FFT]{Fast Fourier Transform}
+	\acro{SMT}[SMT]{Simultaneous Multithreading}
+	\acro{TTL}[TTL]{Time to Live}
 \end{acronym}
 
 \listoffigures{}

@@ -1,0 +1,37 @@
+% !TeX root = ../main.tex
+
+\chapter{Design Space for Dynamic Resource Management in OpenMP}\label{chapter:design_space}
+
+This chapter discusses the design space for dynamic resource management in OpenMP, based on the execution model defined by the OpenMP standard and the empirical observations of the LLVM OpenMP runtime. The goal is to identify feasible design choices, constraints, and trade-offs for integrating dynamic resource management mechanisms into OpenMP runtimes.
+
+\section{Constraints Imposed by the OpenMP Standard}
+
+The OpenMP standard defines a fork--join execution model in which parallel regions are executed by a team of threads that is created at the beginning of the region and joined at its end~\parencite{openmp60}. While the standard allows the number of threads to vary between parallel regions, it does not permit changes to the team size during the execution of a parallel region.
+
+This restriction imposes a fundamental constraint on dynamic resource management in OpenMP. Any adaptation of resource allocation must occur at well-defined synchronization points, most notably at the fork barrier when entering a parallel region. As a result, resource management in OpenMP is inherently elastic rather than malleable~\parencite{Feitelson1996}.
+
+In addition, the standard defines a precedence hierarchy for determining the number of threads, including explicit \texttt{num\_threads} clauses, internal control variables, and environment variables~\parencite{openmp60}. A dynamic resource management mechanism must respect this hierarchy to remain compliant with the OpenMP specification.
+
+\section{Internal vs. External Resource Management Approaches}
+
+Dynamic resource management can be implemented either within the OpenMP runtime itself or by an external entity that coordinates resource usage across multiple applications or runtimes.
+
+An internal resource management approach integrates decision-making logic directly into the OpenMP runtime. This allows the runtime to make resource allocation decisions with direct access to execution context, such as the structure of parallel regions and runtime state. Internal approaches benefit from low communication overhead and tight integration with runtime mechanisms, but they are limited to the scope of a single runtime instance.
+
+External resource management approaches delegate resource allocation decisions to a separate process or service. Such approaches enable coordination across multiple applications or parallel libraries, potentially allowing for system-wide resource optimization. Similar ideas have been explored at the MPI level, where simulation layers can model the effect of dynamically varying compute resources without modifying the application~\parencite{fecht_simulation_nodate}. However, external approaches introduce additional communication overhead and require well-defined interfaces between the runtime and the external manager. The lack of standardized control interfaces in OpenMP runtimes currently limits the applicability of external approaches.
+
+\section{Control Granularity and Decision Points}
+
+A key design decision concerns the granularity at which resource management decisions are made. In OpenMP, the natural unit of control is the parallel region, as resource allocation decisions can only be applied when a new team of threads is formed.
+
+Resource management decisions may therefore be applied on a per-region basis, allowing different parallel regions within the same application to use different levels of parallelism. Finer-grained control, such as adapting resource allocation within a region, is not supported by the OpenMP execution model.
+
+Another important consideration is the frequency of decision-making. Re-evaluating resource allocation at every parallel region provides maximum flexibility but may introduce overhead. Alternatively, decisions can be amortized across multiple regions or limited to phases of execution to reduce overhead.
+
+\section{Policy Design Considerations}
+
+The design of resource management policies involves balancing responsiveness, overhead, and predictability. Simple policies, such as fixed or staged allocation strategies, offer low overhead and deterministic behavior but may fail to adapt to dynamic workloads. More adaptive policies can respond to changes in system load or application behavior, but they require additional monitoring and may introduce decision latency.
+
+Performance models such as Amdahl's law~\parencite{Amdahl1967} and Gustafson's law~\parencite{Gustafson1988} provide useful guidance for policy design by characterizing the relationship between parallelism and performance. These models can inform decisions about when increasing or decreasing the number of threads is likely to be beneficial.
+
+Finally, practical policy design must account for runtime-specific considerations, including thread pool behavior, thread sleep states~\parencite{noauthor_welcome_nodate}, and affinity management~\parencite{eichenberger2012affinity}. Policies that align with these implementation characteristics are more likely to achieve effective and low-overhead dynamic resource management.

@@ -1,0 +1,69 @@
+% !TeX root = ../main.tex
+
+\chapter{Custom OpenMP Resource Manager}\label{chapter:custom_rm}
+
+This chapter describes the design and implementation of a custom dynamic resource manager (DRM) for OpenMP and documents the integration challenges encountered during development. The resource manager is implemented as a standalone process that communicates with a modified LLVM OpenMP runtime via a Unix domain socket. It intercepts thread allocation decisions at the fork barrier and applies configurable scheduling policies to control the number of threads granted to concurrent OpenMP applications.
+
+\section{Architecture and Integration}
+
+The resource manager is implemented in Rust as a separate process, decoupled from the OpenMP runtime. Communication between the runtime and the manager uses a Unix domain socket, following a lightweight request--reply protocol: the runtime sends a fixed-size request message describing the parallel region (including the requested thread count, a hint, and a maximum), and the manager responds with the granted thread count.
+
+Within the modified \texttt{libomp}, the integration point is the thread allocation path that determines the final team size before a parallel region is forked. When \texttt{OMP\_DYNAMIC=true}, the runtime queries the resource manager instead of applying its default heuristics. The response is cached locally in the runtime with a short TTL to amortize socket round-trip overhead for high-frequency parallel regions.
+
+The resource manager follows the strategy pattern: a common scheduler interface is implemented by multiple interchangeable scheduling algorithms. This separation ensures that different resource management policies can be evaluated without modifying the core communication infrastructure. The following strategies were implemented:
+
+\begin{itemize}
+  \item \textbf{Static allocation:} A fixed thread count is granted to all clients, regardless of load or contention. This serves as a controlled baseline.
+  \item \textbf{Fair-share (reactive):} Available CPU capacity is divided equally among currently connected clients. Thread counts are recomputed on each request based on the number of active clients.
+  \item \textbf{Predictive (proactive):} A lightweight performance model is used to anticipate future thread demand and pre-allocate resources before contention occurs.
+\end{itemize}
+
+\section{Implementation Challenges}\label{sec:bugs}
+
+Three non-obvious issues were encountered during implementation and debugging, each illustrating a different failure mode at the boundary between the DRM, the OpenMP runtime, and the operating system. Resolving these issues was necessary to obtain meaningful experimental results and provides practical insights into the complexity of runtime-level resource management.
+
+\subsection{Fair-Share Scheduler Override}
+
+The first issue was located in the fair-share scheduler implementation (\texttt{fair\_share.rs}). After correctly computing a reduced fair-share grant based on the number of active clients, the scheduler applied an unconditional hint-boost that overrode the computed result:
+
+\begin{lstlisting}[language=Rust]
+// Bug: overwrites the fair-share grant with the client's hint
+granted = granted.max(req.hint_threads.min(req.max_threads.max(1)));
+\end{lstlisting}
+
+With two clients each requesting 32 threads on a system with a total capacity of 32, the fair-share computation correctly produced a grant of 16 per client. However, the hint-boost immediately raised each grant back to 32, resulting in 64 threads competing for 32 cores. The consequence was severe OS-level thread contention: FT and CG executed approximately twice as slowly as expected, with high runtime variance.
+
+The fix was to remove the hint-boost line entirely. The fair-share grant is now final and unconditional, and the observed variance disappeared after this correction.
+
+\subsection{LLVM Runtime Load-Average Heuristic Override}
+
+The second issue was located in the LLVM OpenMP runtime itself (\texttt{kmp\_runtime.cpp}). When \texttt{OMP\_DYNAMIC=true}, the runtime performs two independent thread-count adjustments per parallel region:
+
+\begin{enumerate}
+  \item A query to the external resource manager --- returning the correct fair-share grant.
+  \item An internal call to \texttt{\_\_kmp\_reserve\_threads()} operating in \texttt{dynamic\_load\_balance} mode, which reads \texttt{/proc/loadavg} and independently reduces the team size to 1 if the system appears loaded.
+\end{enumerate}
+
+Because both concurrent worker processes were running threads on the same node, the system load average exceeded the threshold consistently. As a result, the load-balance heuristic silently overrode the DRM grant and serialized every EP parallel region to a single thread. EP at 32 requested threads ran in approximately 112 seconds --- matching the single-threaded runtime --- instead of the expected 3--4 seconds.
+
+The fix was to set \texttt{KMP\_DYNAMIC\_MODE=thread\_limit} in the benchmark environment. This disables the load-average heuristic and delegates full thread-count authority to the DRM\@. After this fix, EP performance returned to expected values.
+
+This issue exposes a subtle but significant limitation of the current OpenMP implementation: \texttt{OMP\_DYNAMIC=true} activates multiple independent dynamic mechanisms that can interfere with one another, and there is no standardized way for an external resource manager to assert exclusive control over thread allocation. This observation is discussed further in \autoref{chapter:standardization}.
+
+\subsection{Sequential Benchmark Iterations}
+
+The third issue was in the benchmark script (\texttt{test-one.sh}). Benchmark iterations were executed sequentially rather than concurrently. As a result, the DRM never observed more than one active client at a time and always granted full capacity. The multi-process contention scenario --- the primary use case for which the DRM was designed --- was never actually exercised in early experiments.
+
+The fix was to launch benchmark iterations in parallel (using shell background execution and \texttt{wait}) so that two processes compete simultaneously for DRM-managed resources. This is the configuration used in all results presented in \autoref{chapter:benchmarks}.
+
+\section{CPU Affinity and Exclusive Partitioning}
+
+After resolving the three bugs above, a further structural issue with fairness was identified when using thread-count-based fair-share together with \texttt{OMP\_PROC\_BIND=close}.
+
+With \texttt{OMP\_PROC\_BIND=close}, the OpenMP runtime pins threads to the first $N$ consecutive cores in the process's CPU affinity set. When the DRM grants each of two concurrent processes 16 threads out of 32 available cores, both processes use the default affinity set and therefore map all their threads to the same first 16 cores, leaving the remaining 16 cores idle. The consequence is that half the available memory bandwidth goes unused, and both processes compete for the same physical cores despite the fair-share grant.
+
+The root cause is that thread-count-based fair-share cannot prevent pinning collisions: granting each process 16 threads does not control which 16 cores those threads are mapped to.
+
+The solution adopted in the final evaluation is explicit CPU-set partitioning via \texttt{taskset}. The available CPU domain is split in half and each concurrent process is assigned an exclusive subset of cores. The DRM capacity is set to the total thread budget $t$, so fair-share grants each of the two clients $t/2$ threads, which exactly fills their exclusive $t/2$-core partition. This eliminates inter-process cache and bandwidth contention and allows the DRM's effect to be measured in isolation from pinning artifacts.
+
+This finding has a direct implication for standardization: a thread-count interface alone is insufficient for correct fair-share scheduling in affinity-aware workloads. A complete resource management interface must be able to grant exclusive CPU sets, not merely thread counts. This limitation of the current design is revisited in \autoref{chapter:standardization}.
